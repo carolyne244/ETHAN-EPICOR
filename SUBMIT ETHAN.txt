@@ -1,0 +1,158 @@
+// **************************************************
+// Custom code for APInvoiceForm
+// Created: 10/12/2023 4:16:18 PM
+// **************************************************
+
+extern alias Erp_Contracts_BO_APInvoice;
+extern alias Erp_Contracts_BO_APPromissoryNotes;
+extern alias Erp_Contracts_BO_Part;
+extern alias Erp_Contracts_BO_Vendor;
+extern alias Erp_Contracts_BO_LogAPInv;
+extern alias Erp_Contracts_BO_Project;
+extern alias Erp_Contracts_BO_EmpBasic;
+extern alias Erp_Contracts_BO_SupplierXRef;
+extern alias Epicor_Ice_Lib_RestClient;
+extern alias Newtonsoft_Json;
+
+using System;
+using System.Net;
+using System.ComponentModel;
+using System.Data;
+using System.Diagnostics;
+using System.Windows.Forms;
+using Erp.Adapters;
+using Erp.UI;
+using Ice.Lib;
+using Ice.Adapters;
+using Ice.Lib.Customization;
+using Ice.Lib.ExtendedProps;
+using Ice.Lib.Framework;
+using Ice.Lib.Searches;
+using Ice.UI.FormFunctions;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Ice.Common;
+using Ice.BO;
+using Ice.Lib.RestClient;
+
+public class Script
+{
+	// ** Wizard Insert Location - Do Not Remove 'Begin/End Wizard Added Module Level Variables' Comments! **
+	// Begin Wizard Added Module Level Variables **
+
+    private const string ApiKey = "mwZ2g9TdN0QpL1NReBPHDhJq4Gs6dRJt1yBKZd8OVvxjm";
+    private const string LibraryName = "ETHAN";
+    private const string functionName = "InvoiceEntry";
+    //private TextBox txtResponse;
+	// End Wizard Added Module Level Variables **
+
+	// Add Custom Module Level Variables Here **
+
+	public void InitializeCustomCode()
+	{
+		// ** Wizard Insert Location - Do not delete 'Begin/End Wizard Added Variable Initialization' lines **
+		// Begin Wizard Added Variable Initialization
+
+		this.APInvDtl_Column.ColumnChanged += new DataColumnChangeEventHandler(this.APInvDtl_AfterFieldChange);
+		// End Wizard Added Variable Initialization
+
+		// Begin Wizard Added Custom Method Calls
+
+		this.buttonSubmit.Click += new System.EventHandler(this.buttonSubmit_Click);
+		// End Wizard Added Custom Method Calls
+	}
+
+	public void DestroyCustomCode()
+	{
+		// ** Wizard Insert Location - Do not delete 'Begin/End Wizard Added Object Disposal' lines **
+		// Begin Wizard Added Object Disposal
+
+		this.buttonSubmit.Click -= new System.EventHandler(this.buttonSubmit_Click);
+		this.APInvDtl_Column.ColumnChanged -= new DataColumnChangeEventHandler(this.APInvDtl_AfterFieldChange);
+		// End Wizard Added Object Disposal
+
+		// Begin Custom Code Disposal
+
+		// End Custom Code Disposal
+	}
+
+	private void buttonSubmit_Click(object sender, System.EventArgs args)
+	{
+		// ** Place Event Handling Code Here **
+
+
+    }
+
+	private void APInvDtl_AfterFieldChange(object sender, DataColumnChangeEventArgs args)
+	{
+		// ** Argument Properties and Uses **
+		// args.Row["FieldName"]
+		// args.Column, args.ProposedValue, args.Row
+		// Add Event Handler Code
+		switch (args.Column.ColumnName)
+		{
+			case "PartNum":
+			        System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+			        var restClient = new RestClientBuilder()
+			            .SetDefaultApiKey(ApiKey)
+			            .UseSession(this.oTrans.CoreSession)
+			            .Build();
+			
+			        using (restClient)
+			        {
+			            // Retrieve the values from the current invoice
+			            string PartNum = this.APInvDtl_Row.dataView[0]["PartNum"].ToString(); 
+			            string InvoiceNum = this.APInvDtl_Row.dataView[0]["InvoiceNum"].ToString();
+			            int VendorNum = Convert.ToInt32(this.APInvHed_Row.dataView[0]["VendorNum"]);
+			            string Company = this.APInvHed_Row.dataView[0]["Company"].ToString();
+			            string PUM = this.APInvDtl_Row.dataView[0]["PUM"].ToString();			
+			            try
+			            {
+			                var contentData = new { PartNum = PartNum, InvoiceNum = InvoiceNum, VendorNum = VendorNum, Company = Company, PUM = PUM };
+			                var content = new RestContent(contentData);  // Declare 'content' here
+			                var response = restClient.Function.Post(
+			                    LibraryName,
+			                    functionName,
+			                    content,
+			                    published: true
+			                );
+							var functionResult = response.GetAnonymousResult( new { BaseUnitPrice = 0.00 });
+                            if(functionResult.BaseUnitPrice > 0)
+                            {
+								decimal newPrice = Convert.ToDecimal(functionResult.BaseUnitPrice);
+								args.Row["ScrUnitCost"] = newPrice;
+							}
+							else
+							{
+								args.Row["ScrUnitCost"] = 0;
+							}
+			            }
+			            catch (RecordNotFoundException ex)
+			            {
+			                // Set the value of a textbox to null
+			                txtResponse.Text = null;
+			
+			                // Display a message to the user
+			                MessageBox.Show("The record was not found.");
+			            }
+			            catch (Exception ex)
+			            {
+			                MessageBox.Show(ex.ToString());
+			            }
+			        }
+				break;
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
